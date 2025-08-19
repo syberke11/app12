@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Dimensions, Linking } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
-import { AppLogo } from '@/components/AppLogo';
-import { AdBanner } from '@/components/AdBanner';
-
 import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BookOpen, Award, Users, TrendingUp, Calendar, Star, Trophy, Clock, Target, CirclePlus as PlusCircle } from 'lucide-react-native';
+import { BookOpen, Award, Users, TrendingUp, Calendar, Star, Trophy, Clock, Target, CirclePlus as PlusCircle, Heart, Gift, ExternalLink, Camera, FileText, Settings, BarChart3 } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeInUp, SlideInRight } from 'react-native-reanimated';
+import { AppLogo } from '@/components/AppLogo';
 
 const { width } = Dimensions.get('window');
 
@@ -26,7 +24,6 @@ interface DashboardStats {
 }
 
 export default function HomeScreen() {
-  
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<DashboardStats>({});
@@ -189,16 +186,6 @@ export default function HomeScreen() {
     fetchDashboardData();
   };
 
-  const renderStatsCard = (icon: any, title: string, value: string | number, color: string, onPress?: () => void) => (
-    <Pressable style={styles.statsCard} onPress={onPress}>
-      <View style={[styles.statsIcon, { backgroundColor: color }]}>
-        {React.createElement(icon, { size: 24, color: 'white' })}
-      </View>
-      <Text style={styles.statsValue}>{value}</Text>
-      <Text style={styles.statsTitle}>{title}</Text>
-    </Pressable>
-  );
-
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Selamat Pagi';
@@ -209,13 +196,56 @@ export default function HomeScreen() {
 
   const getRoleName = (role: string) => {
     switch (role) {
-      case 'siswa': return 'Siswa';
-      case 'guru': return 'Guru';
-      case 'ortu': return 'Orang Tua';
+      case 'siswa': return 'Santri';
+      case 'guru': return 'Ustadz/Ustadzah';
+      case 'ortu': return 'Wali Santri';
       case 'admin': return 'Administrator';
       default: return role;
     }
   };
+
+  const handleWakafPress = () => {
+    Linking.openURL('https://kitabisa.com/campaign/wakafquran');
+  };
+
+  const quickActions = [
+    { 
+      title: 'Absensi', 
+      icon: Calendar, 
+      color: '#8B5CF6', 
+      onPress: () => router.push('/(tabs)/absensi') 
+    },
+    { 
+      title: 'Quiz', 
+      icon: Trophy, 
+      color: '#F59E0B', 
+      onPress: () => router.push('/(tabs)/quiz') 
+    },
+    { 
+      title: 'Jadwal Sholat', 
+      icon: Clock, 
+      color: '#3B82F6', 
+      onPress: () => router.push('/(tabs)/quran') 
+    },
+    { 
+      title: 'Dokumentasi', 
+      icon: Camera, 
+      color: '#10B981', 
+      onPress: () => {} 
+    },
+    { 
+      title: 'Laporan', 
+      icon: FileText, 
+      color: '#EF4444', 
+      onPress: () => {} 
+    },
+    { 
+      title: 'Pengaturan', 
+      icon: Settings, 
+      color: '#6B7280', 
+      onPress: () => {} 
+    },
+  ];
 
   return (
     <ScrollView 
@@ -229,7 +259,7 @@ export default function HomeScreen() {
       <Animated.View entering={FadeInUp}>
         <View style={styles.header}>
           <LinearGradient
-            colors={['#0F172A', '#1E293B', '#334155']}
+            colors={['#10B981', '#059669']}
             style={styles.headerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -256,35 +286,118 @@ export default function HomeScreen() {
       </Animated.View>
 
       <View style={styles.content}>
+        {/* Banner Iklan */}
+        <Animated.View entering={FadeInUp.delay(100)} style={styles.bannerContainer}>
+          <Pressable onPress={handleWakafPress}>
+            <LinearGradient
+              colors={['#059669', '#10B981']}
+              style={styles.banner}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.bannerContent}>
+                <View style={styles.bannerIcon}>
+                  <Heart size={24} color="white" />
+                </View>
+                <View style={styles.bannerText}>
+                  <Text style={styles.bannerTitle}>💝 Wakaf Al-Quran</Text>
+                  <Text style={styles.bannerSubtitle}>Berbagi pahala dengan mewakafkan Al-Quran</Text>
+                </View>
+                <ExternalLink size={16} color="white" />
+              </View>
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
+
         {/* Stats Cards */}
         <Animated.View entering={FadeInUp.delay(200)} style={styles.statsContainer}>
           {profile?.role === 'siswa' && (
             <>
-              {renderStatsCard(TrendingUp, 'Total Poin', stats.totalPoin || 0, '#3B82F6')}
-              {renderStatsCard(BookOpen, 'Setoran Diterima', stats.setoranDiterima || 0, '#10B981')}
-              {renderStatsCard(Award, 'Label Juz', stats.labelCount || 0, '#F59E0B')}
+              <View style={styles.statCard}>
+                <TrendingUp size={20} color="#10B981" />
+                <Text style={styles.statNumber}>{stats.totalPoin || 0}</Text>
+                <Text style={styles.statLabel}>Total Poin</Text>
+              </View>
+              <View style={styles.statCard}>
+                <BookOpen size={20} color="#3B82F6" />
+                <Text style={styles.statNumber}>{stats.setoranDiterima || 0}</Text>
+                <Text style={styles.statLabel}>Diterima</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Award size={20} color="#F59E0B" />
+                <Text style={styles.statNumber}>{stats.labelCount || 0}</Text>
+                <Text style={styles.statLabel}>Label Juz</Text>
+              </View>
             </>
           )}
           
           {profile?.role === 'guru' && (
             <>
-              {renderStatsCard(Clock, 'Menunggu Penilaian', stats.setoranPending || 0, '#EF4444', () => router.push('/(tabs)/penilaian'))}
-              {renderStatsCard(Users, 'Total Siswa', stats.totalSiswa || 0, '#10B981')}
-              {renderStatsCard(Award, 'Kelas Aktif', 1, '#3B82F6')}
+              <View style={styles.statCard}>
+                <Clock size={20} color="#EF4444" />
+                <Text style={styles.statNumber}>{stats.setoranPending || 0}</Text>
+                <Text style={styles.statLabel}>Perlu Dinilai</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Users size={20} color="#10B981" />
+                <Text style={styles.statNumber}>{stats.totalSiswa || 0}</Text>
+                <Text style={styles.statLabel}>Total Santri</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Award size={20} color="#3B82F6" />
+                <Text style={styles.statNumber}>1</Text>
+                <Text style={styles.statLabel}>Kelas Aktif</Text>
+              </View>
             </>
           )}
 
           {profile?.role === 'ortu' && (
             <>
-              {renderStatsCard(TrendingUp, 'Poin Anak', stats.totalPoin || 0, '#3B82F6')}
-              {renderStatsCard(BookOpen, 'Setoran Diterima', stats.setoranDiterima || 0, '#10B981')}
-              {renderStatsCard(Clock, 'Menunggu Penilaian', stats.setoranPending || 0, '#F59E0B')}
+              <View style={styles.statCard}>
+                <TrendingUp size={20} color="#10B981" />
+                <Text style={styles.statNumber}>{stats.totalPoin || 0}</Text>
+                <Text style={styles.statLabel}>Poin Anak</Text>
+              </View>
+              <View style={styles.statCard}>
+                <BookOpen size={20} color="#3B82F6" />
+                <Text style={styles.statNumber}>{stats.setoranDiterima || 0}</Text>
+                <Text style={styles.statLabel}>Diterima</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Clock size={20} color="#F59E0B" />
+                <Text style={styles.statNumber}>{stats.setoranPending || 0}</Text>
+                <Text style={styles.statLabel}>Menunggu</Text>
+              </View>
             </>
           )}
         </Animated.View>
+
+        {/* Quick Actions */}
+        <Animated.View entering={FadeInUp.delay(300)} style={styles.section}>
+          <Text style={styles.sectionTitle}>Fitur Tambahan</Text>
+          <View style={styles.quickActionsGrid}>
+            {quickActions.map((action, index) => (
+              <Animated.View 
+                key={action.title}
+                entering={FadeInDown.delay(index * 100)}
+              >
+                <Pressable 
+                  style={styles.quickActionCard}
+                  onPress={action.onPress}
+                >
+                  <View style={[styles.quickActionIcon, { backgroundColor: action.color }]}>
+                    <action.icon size={20} color="white" />
+                  </View>
+                  <Text style={styles.quickActionText}>{action.title}</Text>
+                </Pressable>
+              </Animated.View>
+            ))}
+          </View>
+        </Animated.View>
+
         {/* Progress Cards for Students */}
         {profile?.role === 'siswa' && (
-          <Animated.View entering={FadeInUp.delay(300)} style={styles.progressSection}>
+          <Animated.View entering={FadeInUp.delay(400)} style={styles.progressSection}>
             <Text style={styles.sectionTitle}>Progress Pembelajaran</Text>
             <View style={styles.progressCards}>
               <View style={styles.progressCard}>
@@ -302,69 +415,6 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
         )}
-
-        {/* Quick Actions */}
-        <Animated.View entering={FadeInUp.delay(400)} style={styles.section}>
-          <Text style={styles.sectionTitle}>Aksi Cepat</Text>
-          <View style={styles.quickActions}>
-            {profile?.role === 'siswa' && (
-              <>
-                <Pressable 
-                  style={[styles.actionCard, { backgroundColor: '#10B981' }]}
-                  onPress={() => router.push('/(tabs)/setoran')}
-                >
-                  <PlusCircle size={24} color="white" />
-                  <Text style={styles.actionText}>Setoran Baru</Text>
-                </Pressable>
-                <Pressable 
-                  style={[styles.actionCard, { backgroundColor: '#3B82F6' }]}
-                  onPress={() => router.push('/(tabs)/quiz')}
-                >
-                  <Trophy size={24} color="white" />
-                  <Text style={styles.actionText}>Ikuti Quiz</Text>
-                </Pressable>
-              </>
-            )}
-            
-            {profile?.role === 'guru' && (
-              <>
-                <Pressable 
-                  style={[styles.actionCard, { backgroundColor: '#EF4444' }]}
-                  onPress={() => router.push('/(tabs)/penilaian')}
-                >
-                  <Award size={24} color="white" />
-                  <Text style={styles.actionText}>Nilai Setoran</Text>
-                </Pressable>
-                <Pressable 
-                  style={[styles.actionCard, { backgroundColor: '#8B5CF6' }]}
-                  onPress={() => router.push('/(tabs)/organize')}
-                >
-                  <Users size={24} color="white" />
-                  <Text style={styles.actionText}>Kelola Kelas</Text>
-                </Pressable>
-              </>
-            )}
-
-            {profile?.role === 'ortu' && (
-              <>
-                <Pressable 
-                  style={[styles.actionCard, { backgroundColor: '#8B5CF6' }]}
-                  onPress={() => router.push('/(tabs)/monitoring')}
-                >
-                  <Users size={24} color="white" />
-                  <Text style={styles.actionText}>Lihat Progress</Text>
-                </Pressable>
-                <Pressable 
-                  style={[styles.actionCard, { backgroundColor: '#10B981' }]}
-                  onPress={() => router.push('/(tabs)/quran')}
-                >
-                  <BookOpen size={24} color="white" />
-                  <Text style={styles.actionText}>Baca Quran</Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </Animated.View>
 
         {/* Recent Activity */}
         <Animated.View entering={FadeInUp.delay(500)} style={styles.section}>
@@ -416,9 +466,6 @@ export default function HomeScreen() {
           )}
         </Animated.View>
 
-        {/* Ad Banner */}
-        <AdBanner type="wakaf" />
-
         {/* Today's Quote */}
         <Animated.View entering={FadeInUp.delay(600)} style={styles.quoteCard}>
           <Star size={20} color="#F59E0B" />
@@ -439,7 +486,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   header: {
-    shadowColor: '#0F172A',
+    shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -491,7 +538,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   userName: {
-    fontSize: Math.min(28, width * 0.07),
+    fontSize: Math.min(24, width * 0.06),
     fontWeight: 'bold',
     color: 'white',
     marginTop: 4,
@@ -507,13 +554,51 @@ const styles = StyleSheet.create({
     padding: 20,
     marginTop: -24,
   },
+  bannerContainer: {
+    marginBottom: 20,
+  },
+  banner: {
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  bannerIcon: {
+    width: 48,
+    height: 48,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerText: {
+    flex: 1,
+  },
+  bannerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  bannerSubtitle: {
+    fontSize: 14,
+    color: 'white',
+    opacity: 0.9,
+  },
   statsContainer: {
     flexDirection: 'row',
     gap: Math.max(12, width * 0.03),
     marginBottom: 24,
-    paddingTop:10,
   },
-  statsCard: {
+  statCard: {
     flex: 1,
     backgroundColor: 'white',
     borderRadius: 16,
@@ -525,25 +610,57 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 5,
   },
-  statsIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  statsValue: {
+  statNumber: {
     fontSize: Math.min(24, width * 0.06),
     fontWeight: 'bold',
     color: '#1F2937',
-    marginBottom: 4,
+    marginVertical: 8,
   },
-  statsTitle: {
+  statLabel: {
     fontSize: Math.min(12, width * 0.03),
     color: '#6B7280',
     textAlign: 'center',
     fontWeight: '600',
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: Math.min(20, width * 0.05),
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 16,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  quickActionCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    width: (width - 64) / 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  quickActionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  quickActionText: {
+    fontSize: 12,
+    color: '#1F2937',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   progressSection: {
     marginBottom: 24,
@@ -580,38 +697,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     fontWeight: '500',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: Math.min(20, width * 0.05),
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: Math.max(12, width * 0.03),
-  },
-  actionCard: {
-    flex: 1,
-    padding: Math.max(16, width * 0.04),
-    borderRadius: 16,
-    alignItems: 'center',
-    gap: 8,
-    minHeight: 80,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  actionText: {
-    color: 'white',
-    fontSize: Math.min(14, width * 0.035),
-    fontWeight: '600',
-    textAlign: 'center',
   },
   activityList: {
     gap: 12,
