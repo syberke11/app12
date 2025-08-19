@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BookOpen, Award, Users, TrendingUp, Calendar, Star, Trophy, Clock, Target, CirclePlus as PlusCircle, Heart, Gift, ExternalLink, Camera, FileText, Settings, BarChart3 } from 'lucide-react-native';
+import { BookOpen, Award, Users, TrendingUp, Calendar, Star, Trophy, Clock, Target, CirclePlus as PlusCircle, Heart, Gift, ExternalLink, Camera, FileText, Settings, ChartBar as BarChart3 } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeInUp, SlideInRight } from 'react-native-reanimated';
 import { AppLogo } from '@/components/AppLogo';
 

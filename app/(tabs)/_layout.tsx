@@ -1,4 +1,4 @@
-import { BookOpen, Home, Trophy, User, Plus } from 'lucide-react-native';
+import { BookOpen, Chrome as Home, Trophy, User, Plus } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { router } from 'expo-router';

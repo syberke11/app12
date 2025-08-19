@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import * as DocumentPicker from 'expo-document-picker';
 import { CloudinaryService } from '@/services/cloudinary';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Upload, FileAudio, X, CheckCircle } from 'lucide-react-native';
+import { Upload, FileAudio, X, CircleCheck as CheckCircle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
