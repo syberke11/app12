@@ -54,12 +54,13 @@ export function AdBanner({ type = 'wakaf', style }: AdBannerProps) {
 
   return (
     <Animated.View entering={FadeInUp} style={[styles.container, style]}>
-      <LinearGradient
-        colors={content.colors}
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
+ <LinearGradient
+  colors={content.colors as [string, string, ...string[]]}
+  style={styles.gradient}
+  start={{ x: 0, y: 0 }}
+  end={{ x: 1, y: 1 }}
+>
+
         <View style={styles.content}>
           <View style={styles.iconContainer}>
             <IconComponent size={24} color="white" />

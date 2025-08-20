@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, Dimensions, Linking } from 'react-native';
+import { AppLogo } from '@/components/AppLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BookOpen, Award, Users, TrendingUp, Calendar, Star, Trophy, Clock, Target, CirclePlus as PlusCircle, Heart, Gift, ExternalLink, Camera, FileText, Settings, ChartBar as BarChart3 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { BookOpen, Award, Users, TrendingUp, Calendar, Star, Trophy, Clock, Target, CirclePlus as PlusCircle, Heart,CheckCircle, Gift, ExternalLink,CircleX, Camera, FileText, Settings, ChartBar as BarChart3, MapPin } from 'lucide-react-native';
+import React, { useEffect, useState,useRef } from 'react';
+import { Dimensions, FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View,TouchableOpacity } from 'react-native';
 import Animated, { FadeInDown, FadeInUp, SlideInRight } from 'react-native-reanimated';
-import { AppLogo } from '@/components/AppLogo';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
+import dayjs from 'dayjs';
 
 const { width } = Dimensions.get('window');
 
@@ -21,15 +23,136 @@ interface DashboardStats {
   recentActivity?: any[];
   hafalanProgress?: number;
   murojaahProgress?: number;
+   attendanceStats?: {
+    totalStudents: number;
+    presentToday: number;
+    absentToday: number;
+    excusedToday: number;
+  };
 }
 
+interface PrayerTimes {
+  fajr: string;
+  dhuhr: string;
+  asr: string;
+  maghrib: string;
+  isha: string;
+}
+const banners = [
+  {
+    id: "1",
+    title: "💝 Wakaf Al-Quran",
+    subtitle: "Berbagi pahala dengan mewakafkan Al-Quran",
+    image: "https://app.rumahamal.org/storage/assets/salman/crowdfunding/YqRaBbtwwyEl4qKh3rilGP7oGMjQsk9Z5vyEq43z.jpeg",
+    link: "https://www.rumahamal.org/project/wakaf_alquran_di_bulan_turunya_alquran"
+  },
+  {
+    id: "2",
+    title: "📖 Donasi Buku",
+    subtitle: "Bantu anak yatim mendapatkan ilmu",
+    image: "https://lazismudiy.or.id/wp-content/uploads/2024/03/Buku-4.jpg",
+    link: "https://lazismudiy.or.id/campaign/donasi-buku"
+  },
+  {
+    id: "3",
+    title: "🤲 Infaq Jumat",
+    subtitle: "Sedekah terbaik di hari Jumat",
+    image: "https://amalsholeh-s3.imgix.net/cover/mcm5rOSCWdhAEZNtggcVlIYdD3LuJB9be2ZA6WYy.jpg",
+    link: "https://www.amalsholeh.com/infaq-shodaqoh-jum-at-masjid-muhajirin/seru"
+  }
+];
 export default function HomeScreen() {
+    const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
+  const [locationName, setLocationName] = useState('');
+  const [nextPrayer, setNextPrayer] = useState<{ name: string; time: string; timeLeft: string } | null>(null);
+  const flatListRef = useRef<FlatList>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const router = useRouter();
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<DashboardStats>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      let nextIndex = currentIndex + 1;
+      if (nextIndex >= banners.length) nextIndex = 0;
+      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+      setCurrentIndex(nextIndex);
+    }, 4000); // 4 detik
+    return () => clearInterval(interval);
+  }, [currentIndex, banners.length]);
+ const handleScroll = (event: any) => {
+    const index = Math.round(event.nativeEvent.contentOffset.x / (width * 0.7));
+    setCurrentIndex(index);
+  };
 
+  const goToPrev = () => {
+    let prevIndex = currentIndex - 1;
+    if (prevIndex < 0) prevIndex = banners.length - 1;
+    flatListRef.current?.scrollToIndex({ index: prevIndex, animated: true });
+    setCurrentIndex(prevIndex);
+  };
+
+  const goToNext = () => {
+    let nextIndex = currentIndex + 1;
+    if (nextIndex >= banners.length) nextIndex = 0;
+    flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+    setCurrentIndex(nextIndex);
+  };
+   const getPrayerTimes = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const loc = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = loc.coords;
+
+      const [address] = await Location.reverseGeocodeAsync({ latitude, longitude });
+      const city = address.city || address.region || 'Lokasi Anda';
+      setLocationName(city);
+
+      const response = await fetch(
+        `https://api.aladhan.com/v1/timings?latitude=${latitude}&longitude=${longitude}&method=2`
+      );
+      const data = await response.json();
+
+      if (data.data) {
+        const prayers = {
+          fajr: data.data.timings.Fajr,
+          dhuhr: data.data.timings.Dhuhr,
+          asr: data.data.timings.Asr,
+          maghrib: data.data.timings.Maghrib,
+          isha: data.data.timings.Isha,
+        };
+        setPrayerTimes(prayers);
+        
+        // Calculate next prayer
+        const now = dayjs();
+        const prayerList = [
+          { name: 'Subuh', time: prayers.fajr },
+          { name: 'Dzuhur', time: prayers.dhuhr },
+          { name: 'Ashar', time: prayers.asr },
+          { name: 'Maghrib', time: prayers.maghrib },
+          { name: 'Isya', time: prayers.isha },
+        ];
+
+        for (let prayer of prayerList) {
+          const prayerTime = dayjs(prayer.time, 'HH:mm');
+          if (now.isBefore(prayerTime)) {
+            setNextPrayer({
+              name: prayer.name,
+              time: prayer.time,
+              timeLeft: prayerTime.from(now, true),
+            });
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error getting prayer times:', error);
+    }
+  };
   const fetchDashboardData = async () => {
     if (!profile) return;
 
@@ -48,6 +171,7 @@ export default function HomeScreen() {
           await fetchAdminStats();
           break;
       }
+       await getPrayerTimes();
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -109,6 +233,38 @@ export default function HomeScreen() {
       .select('*', { count: 'exact', head: true })
       .eq('organize_id', profile?.organize_id)
       .eq('role', 'siswa');
+  // Get today's attendance stats
+    const today = new Date().toISOString().split('T')[0];
+    const { data: studentsData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('organize_id', profile?.organize_id)
+      .eq('role', 'siswa');
+
+    let presentToday = 0;
+    let absentToday = 0;
+    let excusedToday = 0;
+
+    if (studentsData) {
+      for (const student of studentsData) {
+        const { data: attendanceData } = await supabase
+          .from('attendance')
+          .select('status')
+          .eq('student_id', student.id)
+          .eq('date', today)
+          .single();
+
+        if (attendanceData) {
+          switch (attendanceData.status) {
+            case 'hadir': presentToday++; break;
+            case 'izin': excusedToday++; break;
+            case 'tidak_hadir': absentToday++; break;
+          }
+        } else {
+          absentToday++; // Default to absent if no record
+        }
+      }
+    }
 
     // Get recent setoran for review
     const { data: recentSetoran } = await supabase
@@ -126,6 +282,12 @@ export default function HomeScreen() {
       setoranPending: pendingCount || 0,
       totalSiswa: siswaCount || 0,
       recentActivity: recentSetoran || [],
+         attendanceStats: {
+        totalStudents: siswaCount || 0,
+        presentToday,
+        absentToday,
+        excusedToday,
+      },
     });
   };
 
@@ -150,13 +312,28 @@ export default function HomeScreen() {
         .select('*')
         .eq('siswa_id', childId)
         .single();
+ // Get child's attendance stats
+      const today = new Date().toISOString().split('T')[0];
+      const { data: attendanceData } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('student_id', childId)
+        .gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
 
+      const presentCount = attendanceData?.filter(a => a.status === 'hadir').length || 0;
+      const totalDays = attendanceData?.length || 0;
       setStats({
         totalSetoran: setoranData?.length || 0,
         setoranDiterima: setoranData?.filter(s => s.status === 'diterima').length || 0,
         setoranPending: setoranData?.filter(s => s.status === 'pending').length || 0,
         totalPoin: pointsData?.total_poin || 0,
         recentActivity: setoranData?.slice(0, 3) || [],
+          attendanceStats: {
+          totalStudents: 1,
+          presentToday: presentCount,
+          absentToday: totalDays - presentCount,
+          excusedToday: 0,
+        },
       });
     }
   };
@@ -204,45 +381,45 @@ export default function HomeScreen() {
     }
   };
 
-  const handleWakafPress = () => {
-    Linking.openURL('https://kitabisa.com/campaign/wakafquran');
-  };
+const handlePress = (link: string) => {
+  console.log("Open link:", link);
+};
 
   const quickActions = [
     { 
       title: 'Absensi', 
       icon: Calendar, 
-      color: '#8B5CF6', 
+    color: '#0066CC', 
       onPress: () => router.push('/(tabs)/absensi') 
     },
     { 
       title: 'Quiz', 
       icon: Trophy, 
-      color: '#F59E0B', 
+      color: '#FF6B35',  
       onPress: () => router.push('/(tabs)/quiz') 
     },
     { 
       title: 'Jadwal Sholat', 
       icon: Clock, 
-      color: '#3B82F6', 
+      color: '#00A86B', 
       onPress: () => router.push('/(tabs)/quran') 
     },
     { 
       title: 'Dokumentasi', 
       icon: Camera, 
-      color: '#10B981', 
+       color: '#8E44AD', 
       onPress: () => {} 
     },
     { 
       title: 'Laporan', 
       icon: FileText, 
-      color: '#EF4444', 
+      color: '#E74C3C',  
       onPress: () => {} 
     },
     { 
       title: 'Pengaturan', 
       icon: Settings, 
-      color: '#6B7280', 
+      color: '#7F8C8D', 
       onPress: () => {} 
     },
   ];
@@ -257,9 +434,9 @@ export default function HomeScreen() {
     >
       {/* Header */}
       <Animated.View entering={FadeInUp}>
-        <View style={styles.header}>
+        <View style={[styles.header, { marginBottom: 20 }]}>
           <LinearGradient
-            colors={['#10B981', '#059669']}
+          colors={['#00A86B', '#008B5A']}
             style={styles.headerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -286,45 +463,64 @@ export default function HomeScreen() {
       </Animated.View>
 
       <View style={styles.content}>
-        {/* Banner Iklan */}
-        <Animated.View entering={FadeInUp.delay(100)} style={styles.bannerContainer}>
-          <Pressable onPress={handleWakafPress}>
-            <LinearGradient
-              colors={['#059669', '#10B981']}
-              style={styles.banner}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.bannerContent}>
-                <View style={styles.bannerIcon}>
-                  <Heart size={24} color="white" />
-                </View>
-                <View style={styles.bannerText}>
-                  <Text style={styles.bannerTitle}>💝 Wakaf Al-Quran</Text>
-                  <Text style={styles.bannerSubtitle}>Berbagi pahala dengan mewakafkan Al-Quran</Text>
-                </View>
-                <ExternalLink size={16} color="white" />
-              </View>
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
+ {/* Prayer Times Card */}
+        {prayerTimes && (
+         <Animated.View entering={FadeInUp.delay(150)} style={styles.container}>
+      {/* Kubah Masjid */}
+      <LinearGradient colors={['#059669', '#10B981']} style={styles.kubah}>
+        <Clock size={24} color="white" />
+        <Text style={styles.title}>Jadwal Sholat</Text>
+        <MapPin size={18} color="white" />
+      </LinearGradient>
+
+      {/* Konten */}
+      <View style={styles.content}>
+        {nextPrayer && (
+          <View style={styles.nextPrayerContainer}>
+            <Text style={styles.nextPrayerLabel}>Sholat Berikutnya:</Text>
+            <View style={styles.nextPrayerInfo}>
+              <Text style={styles.nextPrayerName}>{nextPrayer.name}</Text>
+              <Text style={styles.nextPrayerTime}>{nextPrayer.time}</Text>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.prayerTimesGrid}>
+          {Object.entries({
+            'Subuh': prayerTimes?.fajr,
+            'Dzuhur': prayerTimes?.dhuhr,
+            'Ashar': prayerTimes?.asr,
+            'Maghrib': prayerTimes?.maghrib,
+            'Isya': prayerTimes?.isha,
+          }).map(([name, time]) => (
+            <View key={name} style={styles.prayerTimeItem}>
+              <Text style={styles.prayerName}>{name}</Text>
+              <Text style={styles.prayerTime}>{time}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.locationText}>{locationName}</Text>
+      </View>
+    </Animated.View>
+        )}
 
         {/* Stats Cards */}
         <Animated.View entering={FadeInUp.delay(200)} style={styles.statsContainer}>
           {profile?.role === 'siswa' && (
             <>
               <View style={styles.statCard}>
-                <TrendingUp size={20} color="#10B981" />
+              <TrendingUp size={20} color="#0066CC" />
                 <Text style={styles.statNumber}>{stats.totalPoin || 0}</Text>
                 <Text style={styles.statLabel}>Total Poin</Text>
               </View>
               <View style={styles.statCard}>
-                <BookOpen size={20} color="#3B82F6" />
+               <BookOpen size={20} color="#00A86B" />
                 <Text style={styles.statNumber}>{stats.setoranDiterima || 0}</Text>
                 <Text style={styles.statLabel}>Diterima</Text>
               </View>
               <View style={styles.statCard}>
-                <Award size={20} color="#F59E0B" />
+             <Award size={20} color="#FF6B35" />
                 <Text style={styles.statNumber}>{stats.labelCount || 0}</Text>
                 <Text style={styles.statLabel}>Label Juz</Text>
               </View>
@@ -334,17 +530,17 @@ export default function HomeScreen() {
           {profile?.role === 'guru' && (
             <>
               <View style={styles.statCard}>
-                <Clock size={20} color="#EF4444" />
+               <Clock size={20} color="#E74C3C" />
                 <Text style={styles.statNumber}>{stats.setoranPending || 0}</Text>
                 <Text style={styles.statLabel}>Perlu Dinilai</Text>
               </View>
               <View style={styles.statCard}>
-                <Users size={20} color="#10B981" />
+                <Users size={20} color="#0066CC" />
                 <Text style={styles.statNumber}>{stats.totalSiswa || 0}</Text>
                 <Text style={styles.statLabel}>Total Santri</Text>
               </View>
               <View style={styles.statCard}>
-                <Award size={20} color="#3B82F6" />
+                <Award size={20} color="#00A86B" />
                 <Text style={styles.statNumber}>1</Text>
                 <Text style={styles.statLabel}>Kelas Aktif</Text>
               </View>
@@ -354,17 +550,17 @@ export default function HomeScreen() {
           {profile?.role === 'ortu' && (
             <>
               <View style={styles.statCard}>
-                <TrendingUp size={20} color="#10B981" />
+           <TrendingUp size={20} color="#0066CC" />
                 <Text style={styles.statNumber}>{stats.totalPoin || 0}</Text>
                 <Text style={styles.statLabel}>Poin Anak</Text>
               </View>
               <View style={styles.statCard}>
-                <BookOpen size={20} color="#3B82F6" />
+                 <BookOpen size={20} color="#00A86B" />
                 <Text style={styles.statNumber}>{stats.setoranDiterima || 0}</Text>
                 <Text style={styles.statLabel}>Diterima</Text>
               </View>
               <View style={styles.statCard}>
-                <Clock size={20} color="#F59E0B" />
+                <Clock size={20} color="#FF6B35" />
                 <Text style={styles.statNumber}>{stats.setoranPending || 0}</Text>
                 <Text style={styles.statLabel}>Menunggu</Text>
               </View>
@@ -372,28 +568,7 @@ export default function HomeScreen() {
           )}
         </Animated.View>
 
-        {/* Quick Actions */}
-        <Animated.View entering={FadeInUp.delay(300)} style={styles.section}>
-          <Text style={styles.sectionTitle}>Fitur Tambahan</Text>
-          <View style={styles.quickActionsGrid}>
-            {quickActions.map((action, index) => (
-              <Animated.View 
-                key={action.title}
-                entering={FadeInDown.delay(index * 100)}
-              >
-                <Pressable 
-                  style={styles.quickActionCard}
-                  onPress={action.onPress}
-                >
-                  <View style={[styles.quickActionIcon, { backgroundColor: action.color }]}>
-                    <action.icon size={20} color="white" />
-                  </View>
-                  <Text style={styles.quickActionText}>{action.title}</Text>
-                </Pressable>
-              </Animated.View>
-            ))}
-          </View>
-        </Animated.View>
+
 
         {/* Progress Cards for Students */}
         {profile?.role === 'siswa' && (
@@ -401,13 +576,13 @@ export default function HomeScreen() {
             <Text style={styles.sectionTitle}>Progress Pembelajaran</Text>
             <View style={styles.progressCards}>
               <View style={styles.progressCard}>
-                <BookOpen size={20} color="#10B981" />
+                 <BookOpen size={20} color="#00A86B" />
                 <Text style={styles.progressTitle}>Hafalan</Text>
                 <Text style={styles.progressNumber}>{stats.hafalanProgress || 0}</Text>
                 <Text style={styles.progressLabel}>Setoran Diterima</Text>
               </View>
               <View style={styles.progressCard}>
-                <Target size={20} color="#3B82F6" />
+                 <Target size={20} color="#0066CC" />
                 <Text style={styles.progressTitle}>Murojaah</Text>
                 <Text style={styles.progressNumber}>{stats.murojaahProgress || 0}</Text>
                 <Text style={styles.progressLabel}>Setoran Diterima</Text>
@@ -415,7 +590,41 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
         )}
-
+   {/* Attendance Summary for Guru/Ortu */}
+        {(profile?.role === 'guru' || profile?.role === 'ortu') && stats.attendanceStats && (
+          <Animated.View entering={FadeInUp.delay(250)} style={styles.attendanceSection}>
+            <Text style={styles.sectionTitle}>Absensi Hari Ini</Text>
+            <View style={styles.attendanceCards}>
+              <View style={styles.attendanceCard}>
+                <Users size={20} color="#0066CC" />
+                <Text style={styles.attendanceNumber}>{stats.attendanceStats.totalStudents}</Text>
+                <Text style={styles.attendanceLabel}>Total Siswa</Text>
+              </View>
+              <View style={styles.attendanceCard}>
+                <CheckCircle size={20} color="#00A86B" />
+                <Text style={styles.attendanceNumber}>{stats.attendanceStats.presentToday}</Text>
+                <Text style={styles.attendanceLabel}>Hadir</Text>
+              </View>
+              <View style={styles.attendanceCard}>
+                <Clock size={20} color="#FF6B35" />
+                <Text style={styles.attendanceNumber}>{stats.attendanceStats.excusedToday}</Text>
+                <Text style={styles.attendanceLabel}>Izin</Text>
+              </View>
+              <View style={styles.attendanceCard}>
+                <CircleX size={20} color="#E74C3C" />
+                <Text style={styles.attendanceNumber}>{stats.attendanceStats.absentToday}</Text>
+                <Text style={styles.attendanceLabel}>Alpa</Text>
+              </View>
+            </View>
+            
+            <Pressable 
+              style={styles.viewAllAttendanceButton}
+              onPress={() => router.push('/(tabs)/absensi')}
+            >
+              <Text style={styles.viewAllAttendanceText}>Lihat Detail Absensi</Text>
+            </Pressable>
+          </Animated.View>
+        )}
         {/* Recent Activity */}
         <Animated.View entering={FadeInUp.delay(500)} style={styles.section}>
           <Text style={styles.sectionTitle}>Aktivitas Terbaru</Text>
@@ -428,7 +637,7 @@ export default function HomeScreen() {
                   style={styles.activityCard}
                 >
                   <View style={styles.activityIcon}>
-                    <BookOpen size={16} color="#10B981" />
+                    <BookOpen size={16} color="#00A86B" />
                   </View>
                   <View style={styles.activityInfo}>
                     <Text style={styles.activityTitle}>
@@ -443,13 +652,13 @@ export default function HomeScreen() {
                   </View>
                   <View style={[
                     styles.activityStatus,
-                    { backgroundColor: activity.status === 'diterima' ? '#DCFCE7' : 
-                                     activity.status === 'pending' ? '#FEF3C7' : '#FEE2E2' }
+                    { backgroundColor: activity.status === 'diterima' ? '#E8F5E8' : 
+                                     activity.status === 'pending' ? '#FFF3E0' : '#FFEBEE' }
                   ]}>
                     <Text style={[
                       styles.activityStatusText,
-                      { color: activity.status === 'diterima' ? '#10B981' : 
-                               activity.status === 'pending' ? '#F59E0B' : '#EF4444' }
+                     { color: activity.status === 'diterima' ? '#00A86B' : 
+                               activity.status === 'pending' ? '#FF6B35' : '#E74C3C' }
                     ]}>
                       {activity.status === 'pending' ? 'Menunggu' : 
                        activity.status === 'diterima' ? 'Diterima' : 'Ditolak'}
@@ -457,6 +666,7 @@ export default function HomeScreen() {
                   </View>
                 </Animated.View>
               ))}
+              
             </View>
           ) : (
             <View style={styles.emptyActivity}>
@@ -465,10 +675,52 @@ export default function HomeScreen() {
             </View>
           )}
         </Animated.View>
+<Animated.View entering={FadeInUp.delay(100)} style={styles.container}>
+      <FlatList
+        ref={flatListRef}
+        data={banners}
+        keyExtractor={(item) => item.id}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={width * 0.7}
+        decelerationRate="fast"
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        renderItem={({ item }) => (
+          <Pressable onPress={() => handlePress(item.link)} style={styles.card}>
+            <Image source={{ uri: item.image }} style={styles.image} />
+            <View style={styles.textContainer}>
+              <Text style={styles.title}>{item.title}</Text>
+              <Text style={styles.subtitle}>{item.subtitle}</Text>
+            </View>
+          </Pressable>
+        )}
+      />
 
+      {/* Pagination Dots */}
+      <View style={{...styles.dotsContainer, paddingBottom: 16}}>
+        {banners.map((_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.dot,
+              { opacity: index === currentIndex ? 1 : 0.3 },
+            ]}
+          />
+        ))}
+      </View>
+
+      {/* Panah Navigasi */}
+      <TouchableOpacity style={[styles.arrow, { left: 10 }]} onPress={goToPrev}>
+        <Text style={styles.arrowText}>{'‹'}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.arrow, { right: 10 }]} onPress={goToNext}>
+        <Text style={styles.arrowText}>{'›'}</Text>
+      </TouchableOpacity>
+    </Animated.View>
         {/* Today's Quote */}
         <Animated.View entering={FadeInUp.delay(600)} style={styles.quoteCard}>
-          <Star size={20} color="#F59E0B" />
+         <Star size={20} color="#FF6B35" />
           <Text style={styles.quoteText}>
             "Dan sungguhnya telah Kami mudahkan Al-Quran untuk pelajaran, 
             maka adakah orang yang mengambil pelajaran?"
@@ -484,13 +736,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+    
   },
   header: {
-    shadowColor: '#10B981',
+ shadowColor: '#0066CC',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerGradient: {
     paddingBottom: 32,
@@ -509,6 +762,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
     flex: 1,
+  },
+   card: {
+    width: width * 0.9,
+    marginRight: 16,
+    backgroundColor: "white",
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+    marginBottom: 20 
+  },
+  image: {
+    width: "100%",
+    height: 160,
+    resizeMode: "cover",
+  },
+  textContainer: {
+    padding: 12,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#111",
+  },
+  subtitle: {
+    fontSize: 13,
+    color: "#555",
+    marginTop: 4,
+  },
+   dotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    marginHorizontal: 4,
+  },
+  arrow: {
+    position: 'absolute',
+    top: '40%',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    padding: 6,
+    borderRadius: 20,
+  },
+  arrowText: {
+    fontSize: 24,
+    color: '#fff',
   },
   headerRight: {
     alignItems: 'center',
@@ -558,9 +864,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   banner: {
-    borderRadius: 16,
+    borderRadius: 16  ,
     padding: 20,
-    shadowColor: '#059669',
+      shadowColor: '#00A86B',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -593,6 +899,128 @@ const styles = StyleSheet.create({
     color: 'white',
     opacity: 0.9,
   },
+   prayerTimesCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  prayerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+    
+  prayerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    flex: 1,
+    textAlign: 'center',
+  },
+  nextPrayerContainer: {
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#F0FDF4',
+  },
+  nextPrayerLabel: {
+    fontSize: 12,
+    color: '#16A34A',
+    marginBottom: 4,
+  },
+   nextPrayerInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+    nextPrayerName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#065F46',
+  },
+  nextPrayerTime: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#059669',
+  },
+   prayerTimesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+   prayerTimeItem: {
+    width: '48%',
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#ECFDF5',
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  prayerName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#064E3B',
+  },
+    prayerTime: {
+    fontSize: 14,
+    color: '#047857',
+  },
+  locationText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#7F8C8D',
+    textAlign: 'center',
+  },
+  attendanceSection: {
+    marginBottom: 24,
+  },
+  attendanceCards: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  attendanceCard: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  attendanceNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  attendanceLabel: {
+    fontSize: 10,
+    color: '#6B7280',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  viewAllAttendanceButton: {
+    backgroundColor: '#0066CC',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+  },
+  viewAllAttendanceText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   statsContainer: {
     flexDirection: 'row',
     gap: Math.max(12, width * 0.03),
@@ -623,45 +1051,40 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: Math.min(20, width * 0.05),
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 16,
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 10,
   },
   quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    flexDirection: "row",
+    flexWrap: "wrap", 
+    justifyContent: "space-between",
   },
   quickActionCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    width: (width - 64) / 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    width: 80,
+    alignItems: "center",
+    marginBottom: 20,
+    
   },
   quickActionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
+    width: 50,
+    height: 50,
+    borderRadius: 25, // lingkaran penuh
+    alignItems: "center",
+    justifyContent: "center",
+  
   },
   quickActionText: {
+    marginTop: 6,
     fontSize: 12,
-    color: '#1F2937',
-    fontWeight: '600',
-    textAlign: 'center',
+    textAlign: "center",
+    fontWeight: 'bold', 
   },
+
+
   progressSection: {
     marginBottom: 24,
   },
@@ -690,7 +1113,7 @@ const styles = StyleSheet.create({
   progressNumber: {
     fontSize: Math.min(28, width * 0.07),
     fontWeight: 'bold',
-    color: '#10B981',
+     color: '#00A86B',
   },
   progressLabel: {
     fontSize: Math.min(12, width * 0.03),
@@ -718,7 +1141,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F0FDF4',
+  backgroundColor: '#E8F5E8',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -737,6 +1160,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
   },
+  
   activityStatus: {
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -746,6 +1170,16 @@ const styles = StyleSheet.create({
     fontSize: Math.min(12, width * 0.03),
     fontWeight: '600',
   },
+    kubah: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderTopLeftRadius: 100,  // bikin kaya kubah
+    borderTopRightRadius: 100,
+  },
+
   emptyActivity: {
     backgroundColor: 'white',
     borderRadius: 16,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { supabase } from '@/lib/supabase';
-import { Calendar, CircleCheck as CheckCircle, Circle as XCircle, Clock } from 'lucide-react-native';
+import { Calendar, CircleCheck as CheckCircle,CircleX, Clock } from 'lucide-react-native';
 
 interface AttendanceTrackerProps {
   studentId: string;
@@ -100,7 +100,7 @@ export function AttendanceTracker({ studentId, studentName, isTeacher = false }:
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'hadir': return CheckCircle;
-      case 'tidak_hadir': return XCircle;
+      case 'tidak_hadir': return CircleX;
       case 'izin': return Clock;
       default: return Calendar;
     }
@@ -157,7 +157,7 @@ export function AttendanceTracker({ studentId, studentName, isTeacher = false }:
             style={[styles.actionButton, { backgroundColor: '#EF4444' }]}
             onPress={() => markAttendance('tidak_hadir')}
           >
-            <XCircle size={16} color="white" />
+            <CircleX size={16} color="white" />
             <Text style={styles.actionText}>Tidak Hadir</Text>
           </Pressable>
         </View>
